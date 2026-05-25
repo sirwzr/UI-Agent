@@ -1,0 +1,37 @@
+# Next.js
+.next/
+out/
+
+# Dependencies
+node_modules/
+
+# Environment
+.env.local
+.env.production
+.env
+
+# Prisma
+prisma/migrations/
+
+# Build
+dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+test-results/
+playwright-report/
+
+# Docker
+pgdata/
+redisdata/
+
+# Logs
+*.log

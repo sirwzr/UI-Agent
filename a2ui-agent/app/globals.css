@@ -1,0 +1,131 @@
+/* ===== 全局样式 ===== */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --sidebar-bg: #f8fafc;
+  --sidebar-gradient: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --border-color: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-light: #eff6ff;
+  --primary-gradient: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  --card-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04);
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.06);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.08);
+  --card-radius: 12px;
+  --surface-bg: #ffffff;
+  --text-primary: #0f172a;
+  --text-secondary: #64748b;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.ant-layout {
+  min-height: 100vh;
+}
+
+/* CopilotKit 覆盖 */
+.copilotkit-chat {
+  height: 100vh;
+}
+
+/* A2UI surface 容器样式 */
+.surface-container {
+  background: var(--surface-bg);
+  border-radius: var(--card-radius);
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  box-shadow: var(--card-shadow);
+}
+
+/* 中间结果指示器 */
+.agent-thinking-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* 错误提示 */
+.a2ui-error-toast {
+  border-left: 4px solid #ff4d4f;
+}
+
+/* 渐变色文字 */
+.gradient-text {
+  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 毛玻璃效果 */
+.glass-card {
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: var(--card-radius);
+  box-shadow: var(--shadow-sm);
+}
+
+/* 欢迎页渐变背景 */
+.welcome-gradient {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(139,92,246,0.05) 0%, transparent 50%),
+    linear-gradient(180deg, #ffffff 0%, #fafbfc 100%);
+}
+
+/* 动画性能优化 */
+.a2ui-component {
+  will-change: transform, opacity;
+}
+
+/* 呼吸动画 (用于等待状态) */
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; transform: scale(0.98); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+.breathe-animation {
+  animation: breathe 2.5s ease-in-out infinite;
+}
+
+/* 渐变 orb 背景 */
+.hero-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* 模板卡片 glow 边框动画 */
+.template-card-hover {
+  position: relative;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+.template-card-hover::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(59,130,246,0.35), rgba(139,92,246,0.35), rgba(236,72,153,0.25));
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.template-card-hover:hover::after {
+  opacity: 1;
+}
