@@ -31,23 +31,11 @@ export interface ConversationDetail {
   }[];
 }
 
-// ---- 思考阶段 ----
-export interface ThinkingStage {
-  id: string;
-  label: string;
-  status: "pending" | "in-progress" | "done";
-}
-
 export interface AppState {
   // 左侧边栏
   sidebarOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
-
-  // 右侧思考面板
-  rightPanelOpen: boolean;
-  toggleRightPanel: () => void;
-  setRightPanelOpen: (open: boolean) => void;
 
   // ---- 对话状态 ----
   conversations: ConversationSummary[];
@@ -64,32 +52,20 @@ export interface AppState {
   updateConversationTitle: (id: string, title: string) => Promise<void>;
 
   // ---- 导航 ----
+  conversationVersion: number;
   goHome: () => void;
 
   // ---- pendingPrompt（模板点击 → 聊天输入）----
   pendingPrompt: { prompt: string; title: string } | null;
   setPendingPrompt: (p: { prompt: string; title: string } | null) => void;
 
-  // ---- Wizard 向导 ----
-  activeWizard: { template: { prompt: string; title: string; category: string } } | null;
-  setActiveWizard: (w: { template: { prompt: string; title: string; category: string } } | null) => void;
-
   // ---- Agent 取消 ----
   abortController: AbortController | null;
   cancelAgent: () => void;
 
-  // ---- 搜索状态 ----
-  searchStatus: { status: "idle" | "searching" | "done" | "fallback"; message?: string } | null;
-  setSearchStatus: (s: { status: "idle" | "searching" | "done" | "fallback"; message?: string } | null) => void;
-
   // ---- A2UI 渲染数据（A2UICustomRenderer 桥接）----
   surfaces: { surfaceId: string; catalogId?: string; components: A2UIComponent[] }[];
   setSurfaces: (surfaces: AppState["surfaces"]) => void;
-
-  // ---- 思考阶段 ----
-  thinkingStages: ThinkingStage[];
-  setThinkingStages: (stages: ThinkingStage[]) => void;
-  updateThinkingStage: (id: string, partial: Partial<ThinkingStage>) => void;
 
   // ---- Agent 回调（A2UICustomRenderer 桥接）----
   runAgentAction: ((action: { name: string; context: Record<string, unknown> }) => void) | null;
@@ -103,9 +79,6 @@ export interface AppState {
   isAgentThinking: boolean;
   setAgentThinking: (thinking: boolean) => void;
 
-  // ---- 思考阶段推进 ----
-  advanceThinkingStage: () => void;
-
   // ---- 组件编辑 ----
   selectedComponentId: string | null;
   setSelectedComponentId: (id: string | null) => void;
@@ -118,10 +91,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarOpen: true,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
-
-  rightPanelOpen: true,
-  toggleRightPanel: () => set((s) => ({ rightPanelOpen: !s.rightPanelOpen })),
-  setRightPanelOpen: (open) => set({ rightPanelOpen: open }),
 
   // ---- 对话状态 ----
   conversations: [],
@@ -142,7 +111,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createConversation: async (title) => {
-    set({ conversationLoading: true, conversationError: null, surfaces: [], agentError: null });
+    set((s) => ({ conversationLoading: true, conversationError: null, surfaces: [], agentError: null, conversationVersion: s.conversationVersion + 1 }));
     try {
       const res = await fetch("/api/conversations", {
         method: "POST",
@@ -166,7 +135,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   loadConversation: async (id) => {
-    set({ conversationLoading: true, conversationError: null, surfaces: [], agentError: null });
+    set((s) => ({ conversationLoading: true, conversationError: null, surfaces: [], agentError: null, conversationVersion: s.conversationVersion + 1 }));
     try {
       const res = await fetch(`/api/conversations/${id}`);
       if (!res.ok) throw new Error("加载失败");
@@ -226,13 +195,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   // ---- 导航 ----
+  conversationVersion: 0,
   goHome: () =>
-    set({
+    set((s) => ({
       currentConversationId: null,
       currentConversationDetail: null,
       surfaces: [],
       agentError: null,
-    }),
+      conversationVersion: s.conversationVersion + 1,
+    })),
 
   // ---- Agent 错误 ----
   agentError: null,
@@ -241,10 +212,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   // ---- pendingPrompt ----
   pendingPrompt: null,
   setPendingPrompt: (p) => set({ pendingPrompt: p }),
-
-  // ---- Wizard ----
-  activeWizard: null,
-  setActiveWizard: (w) => set({ activeWizard: w }),
 
   // ---- Agent 取消 ----
   abortController: null,
@@ -256,53 +223,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  // ---- 搜索状态 ----
-  searchStatus: null,
-  setSearchStatus: (s) => set({ searchStatus: s }),
-
   // ---- A2UI ----
   surfaces: [],
   setSurfaces: (surfaces) => set({ surfaces }),
-
-  thinkingStages: [
-    { id: "analyze", label: "分析需求", status: "pending" },
-    { id: "search", label: "搜索数据", status: "pending" },
-    { id: "design", label: "设计布局", status: "pending" },
-    { id: "generate", label: "生成组件", status: "pending" },
-  ],
-  setThinkingStages: (stages) => set({ thinkingStages: stages }),
-  updateThinkingStage: (id, partial) =>
-    set((s) => ({
-      thinkingStages: s.thinkingStages.map((st) =>
-        st.id === id ? { ...st, ...partial } : st,
-      ),
-    })),
 
   runAgentAction: null,
   setRunAgentAction: (fn) => set({ runAgentAction: fn }),
 
   isAgentThinking: false,
   setAgentThinking: (thinking) => set({ isAgentThinking: thinking }),
-
-  // ---- 思考阶段推进 ----
-  advanceThinkingStage: () =>
-    set((s) => {
-      const stages = [...s.thinkingStages];
-      const inProgressIdx = stages.findIndex((st) => st.status === "in-progress");
-      if (inProgressIdx >= 0) {
-        stages[inProgressIdx] = { ...stages[inProgressIdx], status: "done" };
-        const nextIdx = inProgressIdx + 1;
-        if (nextIdx < stages.length) {
-          stages[nextIdx] = { ...stages[nextIdx], status: "in-progress" };
-        }
-      } else {
-        const firstPending = stages.findIndex((st) => st.status === "pending");
-        if (firstPending >= 0) {
-          stages[firstPending] = { ...stages[firstPending], status: "in-progress" };
-        }
-      }
-      return { thinkingStages: stages };
-    }),
 
   // ---- 组件编辑 ----
   selectedComponentId: null,

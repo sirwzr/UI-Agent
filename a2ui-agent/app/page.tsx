@@ -8,8 +8,7 @@ import { AppHeader } from "@/components/common/AppHeader";
 import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 import { LeftPanel } from "@/components/layout/LeftPanel";
 import { CenterPanel } from "@/components/layout/CenterPanel";
-import { ThinkingPanel } from "@/components/layout/ThinkingPanel";
-import { ThinkingController } from "@/components/layout/ThinkingController";
+import { DebugPanel } from "@/components/debug/DebugPanel";
 import { registerCustomComponents } from "@/lib/a2ui/catalog";
 
 registerCustomComponents();
@@ -32,7 +31,7 @@ export default function HomePage() {
   }
 
   return (
-    <Layout style={{ height: "100vh" }}>
+    <Layout style={{ height: "100vh", width: "100%" }}>
       <AppHeader user={session.user} />
 
       <Layout style={{ flex: 1, overflow: "hidden" }}>
@@ -43,14 +42,9 @@ export default function HomePage() {
         <ErrorBoundary>
           <CenterPanel />
         </ErrorBoundary>
-
-        <ErrorBoundary>
-          <ThinkingPanel />
-        </ErrorBoundary>
       </Layout>
 
-      {/* 不可见组件 — 驱动思考面板 */}
-      <ThinkingController />
+      <DebugPanel />
     </Layout>
   );
 }

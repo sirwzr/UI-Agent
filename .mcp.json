@@ -1,0 +1,6 @@
+{
+  "playwright": {
+    "command": "npx",
+    "args": ["@playwright/mcp", "--browser", "chromium", "--headless", "--viewport-size", "1920x1080"]
+  }
+}

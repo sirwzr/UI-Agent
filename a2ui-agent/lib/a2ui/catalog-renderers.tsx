@@ -4,7 +4,7 @@
 // 将 A2UI v0.9 组件渲染为 Ant Design 组件
 // 接收 { props, children, dispatch } — CopilotKit RendererProps 接口
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Typography,
   Input,
@@ -33,7 +33,15 @@ import {
   Rate,
   Collapse,
   Avatar,
-  Badge,
+  Radio,
+  Switch,
+  Progress,
+  Skeleton,
+  Empty,
+  Breadcrumb,
+  Drawer,
+  Menu,
+  Tooltip,
 } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
 import type { RendererProps } from "@copilotkit/a2ui-renderer";
@@ -119,14 +127,16 @@ function TextRenderer({ props }: RendererProps) {
 }
 
 function ImageRenderer({ props }: RendererProps) {
-  const p = props as { url: string; alt?: string; fit?: string };
+  const p = props as { url: string; alt?: string; fit?: string; height?: number };
   return (
     <Image
       src={p.url}
       alt={p.alt ?? ""}
       style={{
         objectFit: (p.fit as "contain" | "cover") ?? "cover",
-        maxWidth: "100%",
+        width: "100%",
+        maxHeight: p.height ?? 280,
+        borderRadius: 8,
       }}
     />
   );
@@ -142,14 +152,18 @@ function TextFieldRenderer({ props }: RendererProps) {
     label?: string;
     inputType?: string;
     placeholder?: string;
+    value?: string;
     validation?: { required?: boolean; min?: number; max?: number };
   };
+  const [value, setValue] = useState(p.value ?? "");
 
   if (p.inputType === "number") {
     return (
       <div style={{ marginBottom: 12 }}>
         {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
         <InputNumber
+          value={Number(value) || 0}
+          onChange={(v) => setValue(String(v ?? ""))}
           placeholder={p.placeholder ?? p.label}
           min={p.validation?.min}
           max={p.validation?.max}
@@ -165,6 +179,8 @@ function TextFieldRenderer({ props }: RendererProps) {
       <Input
         type={p.inputType ?? "text"}
         placeholder={p.placeholder ?? p.label}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
         required={p.validation?.required}
       />
     </div>
@@ -173,11 +189,15 @@ function TextFieldRenderer({ props }: RendererProps) {
 
 function DateTimeInputRenderer({ props }: RendererProps) {
   const p = props as { label?: string; enableTime?: boolean };
+  const [value, setValue] = useState<any>(null);
+
   return (
     <div style={{ marginBottom: 12 }}>
       {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
       <DatePicker
         showTime={p.enableTime}
+        value={value}
+        onChange={(v) => setValue(v)}
         placeholder={p.label ?? "选择日期"}
         style={{ width: "100%" }}
       />
@@ -186,16 +206,30 @@ function DateTimeInputRenderer({ props }: RendererProps) {
 }
 
 function CheckBoxRenderer({ props }: RendererProps) {
-  const p = props as { label?: string };
-  return <Checkbox style={{ marginBottom: 12 }}>{p.label}</Checkbox>;
+  const p = props as { label?: string; value?: boolean };
+  const [checked, setChecked] = useState(p.value ?? false);
+
+  return (
+    <Checkbox
+      checked={checked}
+      onChange={(e) => setChecked(e.target.checked)}
+      style={{ marginBottom: 12 }}
+    >
+      {p.label}
+    </Checkbox>
+  );
 }
 
 function ChoicePickerRenderer({ props }: RendererProps) {
-  const p = props as { label?: string; options?: string[] };
+  const p = props as { label?: string; options?: string[]; value?: string };
+  const [value, setValue] = useState(p.value);
+
   return (
     <div style={{ marginBottom: 12 }}>
       {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
       <Select
+        value={value}
+        onChange={(v) => setValue(v)}
         placeholder={p.label ?? "请选择"}
         options={(p.options ?? []).map((opt: string) => ({ label: opt, value: opt }))}
         style={{ width: "100%" }}
@@ -205,11 +239,18 @@ function ChoicePickerRenderer({ props }: RendererProps) {
 }
 
 function SliderRenderer({ props }: RendererProps) {
-  const p = props as { label?: string; min?: number; max?: number };
+  const p = props as { label?: string; min?: number; max?: number; value?: number };
+  const [value, setValue] = useState(p.value ?? (p.min ?? 0));
+
   return (
     <div style={{ marginBottom: 12 }}>
       {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
-      <Slider min={p.min ?? 0} max={p.max ?? 100} />
+      <Slider
+        min={p.min ?? 0}
+        max={p.max ?? 100}
+        value={value}
+        onChange={(v) => setValue(v)}
+      />
     </div>
   );
 }
@@ -227,7 +268,6 @@ function ButtonRenderer({ props, children, dispatch }: RendererProps) {
 
   const handleClick = () => {
     if (!dispatch) return;
-    // 兼容两种 action 格式：{ name, context } 和 { event: { name, context } }
     const flatAction = p.action;
     if (!flatAction) return;
     const actionName = flatAction.name ?? flatAction.event?.name;
@@ -282,7 +322,6 @@ function TableRenderer({ props }: RendererProps) {
     columns?: { title: string; dataIndex: string }[];
     dataSource?: Record<string, unknown>[];
   };
-  // dataSource 可能是数组或包含 records 字段的对象
   const records = Array.isArray(p.dataSource)
     ? p.dataSource
     : (p.dataSource as unknown as { records?: Record<string, unknown>[] } | undefined)?.records;
@@ -404,8 +443,6 @@ function ProgressStepRenderer({ props }: RendererProps) {
 
 // ---- 数据可视化 ----
 function ChartRenderer({ props }: RendererProps) {
-  // recharts will be rendered via render-surface.tsx path
-  // CopilotChat inline path shows a placeholder
   const p = props as { type?: string; title?: string; height?: number };
   return (
     <Card size="small" title={p.title ?? "图表"} style={{ marginBottom: 12, minHeight: p.height ?? 200 }}>
@@ -417,7 +454,7 @@ function ChartRenderer({ props }: RendererProps) {
 }
 
 // ---- 媒体 ----
-function CarouselRenderer({ props, children }: RendererProps) {
+function CarouselRenderer({ props }: RendererProps) {
   const p = props as { items?: { url: string; alt?: string; caption?: string }[]; autoplay?: boolean; interval?: number };
   return (
     <div style={{ marginBottom: 12 }}>
@@ -506,10 +543,18 @@ function RichTextRenderer({ props }: RendererProps) {
 // ---- 交互扩展 ----
 function RatingRenderer({ props }: RendererProps) {
   const p = props as { label?: string; value?: number; max?: number; allowHalf?: boolean; disabled?: boolean };
+  const [val, setVal] = useState(p.value ?? 0);
+
   return (
     <div style={{ marginBottom: 12 }}>
       {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
-      <Rate value={p.value ?? 0} count={p.max ?? 5} allowHalf={p.allowHalf} disabled={p.disabled} />
+      <Rate
+        value={val}
+        onChange={(v) => setVal(v)}
+        count={p.max ?? 5}
+        allowHalf={p.allowHalf}
+        disabled={p.disabled}
+      />
     </div>
   );
 }
@@ -586,16 +631,159 @@ function AvatarRenderer({ props }: RendererProps) {
 
 function NumberAnimationRenderer({ props }: RendererProps) {
   const p = props as { value: number; prefix?: string; suffix?: string; duration?: number; label?: string };
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    const target = p.value;
+    const dur = p.duration ?? 1500;
+    const startTime = Date.now();
+    const startValue = 0;
+
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / dur, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      setDisplayValue(Math.round(startValue + (target - startValue) * eased));
+      if (progress >= 1) clearInterval(timer);
+    }, 16);
+
+    return () => clearInterval(timer);
+  }, [p.value, p.duration]);
+
   return (
     <Card size="small" style={{ minWidth: 120, textAlign: "center" }}>
       <Statistic
         title={p.label}
-        value={p.value}
+        value={displayValue}
         prefix={p.prefix}
         suffix={p.suffix}
         valueStyle={{ fontSize: 24, fontWeight: 600 }}
       />
     </Card>
+  );
+}
+
+// ---- Phase 5 新增组件渲染器 ----
+function RadioRenderer({ props }: RendererProps) {
+  const p = props as { label?: string; options?: string[]; value?: string };
+  const [val, setVal] = useState(p.value);
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {p.label && <AntText strong style={{ display: "block", marginBottom: 4 }}>{p.label}</AntText>}
+      <Radio.Group value={val} onChange={(e) => setVal(e.target.value)}>
+        {(p.options ?? []).map((opt) => (
+          <Radio key={opt} value={opt}>{opt}</Radio>
+        ))}
+      </Radio.Group>
+    </div>
+  );
+}
+
+function SwitchRenderer({ props }: RendererProps) {
+  const p = props as { label?: string; checked?: boolean };
+  const [checked, setChecked] = useState(p.checked ?? false);
+
+  return (
+    <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+      <Switch checked={checked} onChange={(v) => setChecked(v)} />
+      {p.label && <AntText>{p.label}</AntText>}
+    </div>
+  );
+}
+
+function ProgressRenderer({ props }: RendererProps) {
+  const p = props as { percent: number; status?: "success" | "exception" | "normal" | "active"; showInfo?: boolean };
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <Progress percent={p.percent} status={p.status} showInfo={p.showInfo ?? true} />
+    </div>
+  );
+}
+
+function SkeletonRenderer({ props }: RendererProps) {
+  const p = props as { type?: "card" | "list" | "paragraph"; count?: number };
+  const count = p.count ?? 1;
+
+  if (p.type === "list") {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        {Array.from({ length: count }).map((_, i) => (
+          <Skeleton key={i} active avatar paragraph={{ rows: 1 }} style={{ marginBottom: 8 }} />
+        ))}
+      </div>
+    );
+  }
+  if (p.type === "paragraph") {
+    return (
+      <div style={{ marginBottom: 12 }}>
+        <Skeleton active paragraph={{ rows: count }} />
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <Skeleton active />
+    </div>
+  );
+}
+
+function EmptyRenderer({ props }: RendererProps) {
+  const p = props as { description?: string };
+  return <Empty description={p.description ?? "暂无数据"} style={{ marginBottom: 12 }} />;
+}
+
+function BreadcrumbRenderer({ props }: RendererProps) {
+  const p = props as { items?: { label: string; href?: string }[] };
+  return (
+    <Breadcrumb
+      style={{ marginBottom: 12 }}
+      items={(p.items ?? []).map((item) => ({
+        title: item.href ? <a href={item.href}>{item.label}</a> : item.label,
+      }))}
+    />
+  );
+}
+
+function DrawerRenderer({ props, children }: RendererProps) {
+  const p = props as { title?: string; children?: string[]; placement?: "top" | "right" | "bottom" | "left"; open?: boolean };
+  const [open, setOpen] = useState(p.open ?? true);
+
+  return (
+    <Drawer
+      title={p.title}
+      placement={p.placement ?? "right"}
+      open={open}
+      onClose={() => setOpen(false)}
+    >
+      {(p.children ?? []).map((childId: string) => (
+        <div key={childId}>{children(childId)}</div>
+      ))}
+    </Drawer>
+  );
+}
+
+function MenuRenderer({ props }: RendererProps) {
+  const p = props as { items?: { label: string; key: string; icon?: string }[]; mode?: "vertical" | "horizontal" | "inline" };
+  return (
+    <Menu
+      mode={p.mode ?? "inline"}
+      style={{ marginBottom: 12 }}
+      items={(p.items ?? []).map((item) => ({
+        key: item.key,
+        label: item.label,
+        icon: item.icon ? <AntText>{item.icon}</AntText> : undefined,
+      }))}
+    />
+  );
+}
+
+function TooltipRenderer({ props, children }: RendererProps) {
+  const p = props as { text: string; child: string };
+  return (
+    <Tooltip title={p.text}>
+      <span style={{ display: "inline-block" }}>{children(p.child)}</span>
+    </Tooltip>
   );
 }
 
@@ -634,4 +822,13 @@ export const a2uiRenderers = {
   StatusBadge: StatusBadgeRenderer,
   Avatar: AvatarRenderer,
   NumberAnimation: NumberAnimationRenderer,
+  Radio: RadioRenderer,
+  Switch: SwitchRenderer,
+  Progress: ProgressRenderer,
+  Skeleton: SkeletonRenderer,
+  Empty: EmptyRenderer,
+  Breadcrumb: BreadcrumbRenderer,
+  Drawer: DrawerRenderer,
+  Menu: MenuRenderer,
+  Tooltip: TooltipRenderer,
 };

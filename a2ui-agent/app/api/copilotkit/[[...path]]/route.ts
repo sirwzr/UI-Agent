@@ -5,10 +5,16 @@ import {
 } from "@copilotkit/runtime";
 import { BuiltInAgent } from "@copilotkit/runtime/v2";
 import { createOpenAI } from "@ai-sdk/openai";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { A2UI_SYSTEM_PROMPT } from "@/lib/a2ui/prompts/system";
 import { enrichSystemPrompt } from "@/lib/a2ui/prompts/examples";
 import { a2uiDefinitions } from "@/lib/a2ui/catalog-definitions";
-import { webSearchTool } from "@/lib/tools/webSearch";
+import { generateComponentDocs } from "@/lib/a2ui/catalog-generator";
+import { generateTokenPrompt } from "@/lib/a2ui/design-tokens";
+import { allTools } from "@/lib/tools";
+import { appendLog } from "@/lib/debug/serverLogs";
+
+// ===== LLM Providers =====
 
 const deepseekProvider = createOpenAI({
   baseURL: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
@@ -19,15 +25,35 @@ const openaiProvider = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? "",
 });
 
+const aliyunProvider = createOpenAI({
+  baseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1",
+  apiKey: process.env.DASHSCOPE_API_KEY ?? "",
+});
+
+const geminiProvider = createGoogleGenerativeAI({
+  apiKey: process.env.GEMINI_API_KEY ?? "",
+});
+
 function resolveModel() {
   const provider = process.env.LLM_PROVIDER ?? "deepseek";
-  if (provider === "openai") {
-    return openaiProvider.chat(process.env.OPENAI_MODEL ?? "gpt-4o");
+  switch (provider) {
+    case "openai":
+      return openaiProvider.chat(process.env.OPENAI_MODEL ?? "gpt-4o");
+    case "aliyun":
+      return aliyunProvider.chat(process.env.ALIYUN_MODEL ?? "qwen-plus");
+    case "gemini":
+      return geminiProvider.chat(process.env.GEMINI_MODEL ?? "gemini-2.5-flash");
+    default:
+      return deepseekProvider.chat("deepseek-chat");
   }
-  return deepseekProvider.chat("deepseek-chat");
 }
 
-const ENRICHED_PROMPT = enrichSystemPrompt(A2UI_SYSTEM_PROMPT);
+// ===== 动态注入组件目录和设计 Token 到 System Prompt =====
+const catalogDocs = generateComponentDocs();
+const tokenGuide = generateTokenPrompt();
+const BASE_PROMPT = A2UI_SYSTEM_PROMPT.replace("{{CATALOG_DOCS}}", catalogDocs);
+const PROMPT_WITH_TOKENS = `${BASE_PROMPT}\n${tokenGuide}`;
+const ENRICHED_PROMPT = enrichSystemPrompt(PROMPT_WITH_TOKENS);
 
 const runtime = new CopilotRuntime({
   agents: {
@@ -36,7 +62,7 @@ const runtime = new CopilotRuntime({
       prompt: ENRICHED_PROMPT,
       temperature: 0.7,
       maxOutputTokens: 16384,
-      tools: [webSearchTool],
+      tools: allTools,
     }),
   },
   a2ui: {
@@ -63,7 +89,15 @@ async function loggedHandler(req: Request) {
   console.log(`[copilotkit] ${req.method} ${url.pathname} started`);
   try {
     const res = await handleRequest(req);
-    console.log(`[copilotkit] ${req.method} ${url.pathname} → ${res.status} (${Date.now() - start}ms)`);
+    const duration = Date.now() - start;
+    console.log(`[copilotkit] ${req.method} ${url.pathname} → ${res.status} (${duration}ms)`);
+    appendLog({
+      ts: start,
+      type: "api_call",
+      detail: `${req.method} ${url.pathname}`,
+      duration,
+      success: res.ok || res.status === 200,
+    });
     if (!res.ok && res.status !== 200) {
       const body = await res.clone().text().catch(() => "<unreadable>");
       console.error(`[copilotkit] ${req.method} ${url.pathname} error body (first 500 chars):`, body.slice(0, 500));
@@ -71,9 +105,17 @@ async function loggedHandler(req: Request) {
     return res;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[copilotkit] ${req.method} ${url.pathname} error (${Date.now() - start}ms):`, msg);
-    if (msg.includes("DEEPSEEK") || msg.includes("API") || msg.includes("fetch") || msg.includes("ECONN")) {
-      console.error(`[copilotkit] LLM API error suspected — check DEEPSEEK_BASE_URL and DEEPSEEK_API_KEY env vars`);
+    const duration = Date.now() - start;
+    console.error(`[copilotkit] ${req.method} ${url.pathname} error (${duration}ms):`, msg);
+    appendLog({
+      ts: start,
+      type: "api_call",
+      detail: `${req.method} ${url.pathname} ERROR: ${msg.slice(0, 100)}`,
+      duration,
+      success: false,
+    });
+    if (msg.includes("API") || msg.includes("fetch") || msg.includes("ECONN")) {
+      console.error(`[copilotkit] LLM API error — check provider env vars (DEEPSEEK/DASHSCOPE/GEMINI/OPENAI)`);
     }
     throw err;
   }

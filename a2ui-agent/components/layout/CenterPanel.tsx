@@ -1,16 +1,17 @@
 "use client";
 
 import React, { useCallback } from "react";
-import { Layout, Typography, Button, Result, Spin } from "antd";
-import { HomeOutlined, PartitionOutlined, CloseCircleOutlined } from "@ant-design/icons";
+import { Layout, Typography, Button, Result, Spin, Space } from "antd";
+import { HomeOutlined, PartitionOutlined, CloseCircleOutlined, CheckOutlined, BgColorsOutlined, LayoutOutlined, ReloadOutlined } from "@ant-design/icons";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore } from "@/stores/app";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 import { RenderA2UITree } from "@/lib/a2ui/render-surface";
 import { WelcomeGallery } from "@/components/welcome/WelcomeGallery";
-import { TemplateWizard } from "@/components/wizard/TemplateWizard";
 import { ComponentTreePanel } from "@/components/editor/ComponentTreePanel";
 import { ComponentInspector } from "@/components/editor/ComponentInspector";
+import { useCopilotKit } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkitnext/react";
 
 const { Content } = Layout;
 const { Text } = Typography;
@@ -25,6 +26,8 @@ export function CenterPanel() {
   const surfaces = useAppStore((s) => s.surfaces);
   const runAgentAction = useAppStore((s) => s.runAgentAction);
   const currentId = useAppStore((s) => s.currentConversationId);
+  const currentConversationDetail = useAppStore((s) => s.currentConversationDetail);
+  const conversationVersion = useAppStore((s) => s.conversationVersion);
   const agentError = useAppStore((s) => s.agentError);
   const setAgentError = useAppStore((s) => s.setAgentError);
   const setPendingPrompt = useAppStore((s) => s.setPendingPrompt);
@@ -33,38 +36,20 @@ export function CenterPanel() {
   const toggleEditor = useAppStore((s) => s.toggleEditor);
   const selectedComponentId = useAppStore((s) => s.selectedComponentId);
   const setSelectedComponentId = useAppStore((s) => s.setSelectedComponentId);
-  const activeWizard = useAppStore((s) => s.activeWizard);
-  const setActiveWizard = useAppStore((s) => s.setActiveWizard);
   const cancelAgent = useAppStore((s) => s.cancelAgent);
   const isAgentThinking = useAppStore((s) => s.isAgentThinking);
   const { updateLastPrompt } = useUserPreferences();
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId: "default" });
 
-  // 模板卡片点击 → 打开向导
+  // 模板卡片点击 → prompt 直接交给 Agent（Agent 自行判断是否需要澄清）
   const handlePromptSelect = useCallback(
-    (prompt: string, title: string, category: string) => {
+    (prompt: string, title: string, _category: string) => {
       updateLastPrompt(prompt);
-      // 「继续上次」无类别，跳过向导直接发送
-      if (!category) {
-        setPendingPrompt({ prompt, title });
-        return;
-      }
-      setActiveWizard({ template: { prompt, title, category } });
+      setPendingPrompt({ prompt, title: title || "新对话" });
     },
-    [updateLastPrompt, setPendingPrompt, setActiveWizard],
+    [updateLastPrompt, setPendingPrompt],
   );
-
-  // 向导完成 → 触发聊天注入
-  const handleWizardComplete = useCallback(
-    (composedPrompt: string, title: string) => {
-      setActiveWizard(null);
-      setPendingPrompt({ prompt: composedPrompt, title });
-    },
-    [setActiveWizard, setPendingPrompt],
-  );
-
-  const handleWizardCancel = useCallback(() => {
-    setActiveWizard(null);
-  }, [setActiveWizard]);
 
   const handleRetry = useCallback(() => {
     setAgentError(null);
@@ -76,20 +61,32 @@ export function CenterPanel() {
     goHome();
   }, [cancelAgent, goHome]);
 
-  return (
-    <Content style={{ flex: 1, overflow: "auto", background: "#fff" }}>
-      {/* Wizard 向导（替换旧 TemplateConfirmModal） */}
-      {activeWizard && (
-        <TemplateWizard
-          template={activeWizard.template}
-          onComplete={handleWizardComplete}
-          onCancel={handleWizardCancel}
-        />
-      )}
+  // 生成区操作按钮：点击触发 Agent 继续对话
+  const handleSurfaceAction = useCallback(
+    (action: string) => {
+      const prompts: Record<string, string> = {
+        approve: "满意，这个界面很好",
+        color: "请修改配色方案",
+        layout: "请调整布局结构",
+        regenerate: "请重新生成这个界面",
+      };
+      const prompt = prompts[action] ?? action;
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: prompt,
+      });
+      copilotkit.runAgent({ agent }).catch(() => {
+        // 静默处理
+      });
+    },
+    [agent, copilotkit],
+  );
 
-      {!activeWizard && (
-        <AnimatePresence mode="wait">
-          {agentError ? (
+  return (
+    <Content key={conversationVersion} style={{ flex: 1, overflow: "auto", background: "#fff" }}>
+      <AnimatePresence mode="wait">
+        {agentError ? (
             <motion.div
               key="error"
               {...fadeSlide}
@@ -117,9 +114,9 @@ export function CenterPanel() {
               key="render"
               {...fadeSlide}
               transition={{ duration: 0.3 }}
-              style={{ display: "flex", minHeight: "100%", background: "#f5f5f5" }}
+              style={{ display: "flex", minHeight: "100%", background: "#f5f5f5", justifyContent: "center" }}
             >
-              <div style={{ flex: 1, overflow: "auto", padding: "24px" }}>
+              <div style={{ flex: 1, overflow: "auto", padding: "24px", maxWidth: 1200, width: "100%" }}>
                 <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
                   <Button
                     type="text"
@@ -138,16 +135,95 @@ export function CenterPanel() {
                     {editorOpen ? "隐藏" : "组件树"}
                   </Button>
                 </div>
+                {/* 对话消息区 */}
+                {currentConversationDetail?.messages && currentConversationDetail.messages.length > 0 && (
+                  <div style={{ marginBottom: 16 }}>
+                    {currentConversationDetail.messages
+                      .filter((m) => m.role === "user" || m.role === "assistant")
+                      .slice(-12)
+                      .map((msg) => (
+                        <div
+                          key={msg.id}
+                          style={{
+                            marginBottom: 8,
+                            padding: "8px 14px",
+                            borderRadius: 8,
+                            background: msg.role === "user" ? "#e8f0fe" : "#f8fafc",
+                            border: msg.role === "user" ? "1px solid #bfdbfe" : "1px solid #e2e8f0",
+                            fontSize: 13,
+                            lineHeight: 1.6,
+                            color: "#334155",
+                            maxWidth: 800,
+                            marginLeft: msg.role === "user" ? "auto" : 0,
+                            marginRight: msg.role === "user" ? 0 : "auto",
+                          }}
+                        >
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 2 }}>
+                            {msg.role === "user" ? "你" : "AI 助手"}
+                          </div>
+                          <div style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                            {msg.textContent ?? (() => {
+                              try { return JSON.parse(msg.content).text ?? msg.content; } catch { return msg.content; }
+                            })()}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+
                 <RenderA2UITree
                   surfaces={surfaces}
                   onAction={runAgentAction ?? undefined}
                   selectedComponentId={selectedComponentId}
                   onSelectComponent={setSelectedComponentId}
                 />
+
+                {/* 生成区操作栏 */}
+                <div
+                  style={{
+                    marginTop: 24,
+                    padding: "16px 20px",
+                    background: "#fff",
+                    borderRadius: 12,
+                    border: "1px solid #e2e8f0",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <Space size="middle">
+                    <Button
+                      type="primary"
+                      icon={<CheckOutlined />}
+                      onClick={() => handleSurfaceAction("approve")}
+                      style={{ background: "#10b981", borderColor: "#10b981" }}
+                    >
+                      满意
+                    </Button>
+                    <Button
+                      icon={<BgColorsOutlined />}
+                      onClick={() => handleSurfaceAction("color")}
+                    >
+                      修改配色
+                    </Button>
+                    <Button
+                      icon={<LayoutOutlined />}
+                      onClick={() => handleSurfaceAction("layout")}
+                    >
+                      调整布局
+                    </Button>
+                    <Button
+                      icon={<ReloadOutlined />}
+                      onClick={() => handleSurfaceAction("regenerate")}
+                    >
+                      重新生成
+                    </Button>
+                  </Space>
+                </div>
               </div>
 
               {editorOpen && (
-                <div style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid #e8ecf0" }}>
+                <div style={{ display: "flex", flexDirection: "column", borderLeft: "1px solid #e8ecf0", width: 280, flexShrink: 0 }}>
                   <ComponentTreePanel />
                   {selectedComponentId && <ComponentInspector />}
                 </div>
@@ -181,13 +257,45 @@ export function CenterPanel() {
 
               {isAgentThinking && <Spin size="large" />}
 
+              {/* 等待中 — 显示已有对话 */}
+              {currentConversationDetail?.messages && currentConversationDetail.messages.length > 0 && (
+                <div style={{ width: "100%", maxWidth: 700, padding: "0 24px" }}>
+                  {currentConversationDetail.messages
+                    .filter((m) => m.role === "user" || m.role === "assistant")
+                    .slice(-6)
+                    .map((msg) => (
+                      <div
+                        key={msg.id}
+                        style={{
+                          marginBottom: 6,
+                          padding: "6px 12px",
+                          borderRadius: 6,
+                          background: msg.role === "user" ? "#e8f0fe" : "#f8fafc",
+                          border: msg.role === "user" ? "1px solid #bfdbfe" : "1px solid #e2e8f0",
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                          color: "#64748b",
+                          opacity: 0.85,
+                        }}
+                      >
+                        <span style={{ fontSize: 10, color: "#94a3b8", marginRight: 8 }}>
+                          {msg.role === "user" ? "你" : "AI"}
+                        </span>
+                        <span style={{ whiteSpace: "pre-wrap" }}>
+                          {(msg.textContent ?? (() => { try { return JSON.parse(msg.content).text ?? msg.content; } catch { return msg.content; } })()).slice(0, 200)}
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              )}
+
               <div style={{ textAlign: "center", color: "#999" }}>
                 <motion.div
                   animate={{ opacity: [0.4, 1, 0.4] }}
                   transition={{ repeat: Infinity, duration: 2 }}
                 >
                   <Text type="secondary" style={{ fontSize: 15, display: "block", marginBottom: 8 }}>
-                    {isAgentThinking ? "AI 正在生成界面..." : "在左侧输入框中描述您的需求，界面将在此处实时生成"}
+                    {isAgentThinking ? "AI 正在生成界面..." : "准备中..."}
                   </Text>
                 </motion.div>
 
@@ -220,7 +328,6 @@ export function CenterPanel() {
             </motion.div>
           )}
         </AnimatePresence>
-      )}
     </Content>
   );
 }

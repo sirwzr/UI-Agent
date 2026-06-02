@@ -2,13 +2,13 @@
 
 import React, { useMemo, useState } from "react";
 import { Typography, Row, Col, Segmented } from "antd";
-import { BulbOutlined, HistoryOutlined } from "@ant-design/icons";
+import { HistoryOutlined } from "@ant-design/icons";
 import { motion } from "framer-motion";
 import { TEMPLATES } from "@/lib/a2ui/templates";
 import { TemplateCard } from "./TemplateCard";
 import { useUserPreferences } from "@/hooks/useUserPreferences";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export function WelcomeGallery({
   onPromptSelect,
@@ -32,60 +32,27 @@ export function WelcomeGallery({
   );
 
   return (
-    <div className="welcome-gradient" style={{ padding: "56px 24px 48px", maxWidth: 1080, margin: "0 auto", width: "100%", minHeight: "100%" }}>
-      {/* Hero */}
+    <div style={{ padding: "24px 24px 32px", width: "100%", minHeight: "100%" }}>
+      {/* Hero — 简洁 */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
-        style={{ textAlign: "center", marginBottom: 48, position: "relative" }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        style={{ textAlign: "center", marginBottom: 36 }}
       >
-        {/* 背景 orb */}
-        <div
-          className="hero-orb"
+        <h1
+          className="gradient-text"
           style={{
-            width: 300,
-            height: 300,
-            background: "radial-gradient(circle, rgba(59,130,246,0.15), transparent)",
-            top: -120,
-            left: "50%",
-            transform: "translateX(-50%)",
-          }}
-        />
-        <div
-          className="hero-orb"
-          style={{
-            width: 200,
-            height: 200,
-            background: "radial-gradient(circle, rgba(99,102,241,0.12), transparent)",
-            top: -60,
-            right: "10%",
-          }}
-        />
-
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 16, delay: 0.1 }}
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: 24,
-            background: "linear-gradient(135deg, #eff6ff, #ede9fe)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            margin: "0 auto 20px",
-            boxShadow: "0 4px 20px rgba(59,130,246,0.12)",
+            margin: "0 0 8px",
+            fontSize: 24,
+            fontWeight: 700,
+            letterSpacing: "-0.5px",
+            lineHeight: 1.3,
           }}
         >
-          <BulbOutlined style={{ fontSize: 36, color: "#3b82f6" }} />
-        </motion.div>
-
-        <Title className="gradient-text" style={{ marginTop: 0, marginBottom: 12, fontSize: 32, fontWeight: 800, letterSpacing: "-0.5px" }}>
           AI 界面生成助手
-        </Title>
-        <Text style={{ fontSize: 15, color: "#64748b", lineHeight: 1.6 }}>
+        </h1>
+        <Text style={{ fontSize: 14, color: "#64748b" }}>
           告诉我您需要什么样的界面，我会为您实时生成
         </Text>
       </motion.div>
@@ -93,41 +60,32 @@ export function WelcomeGallery({
       {/* 继续上次 */}
       {lastPrompt && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
-          className="glass-card"
+          transition={{ delay: 0.1, duration: 0.3 }}
           style={{
-            padding: "18px 24px",
-            marginBottom: 36,
+            padding: "14px 20px",
+            marginBottom: 28,
             display: "flex",
             alignItems: "center",
-            gap: 14,
+            gap: 12,
             cursor: "pointer",
-            maxWidth: 540,
-            marginLeft: "auto",
-            marginRight: "auto",
-            borderRadius: 14,
+            borderRadius: 12,
+            border: "1px solid #e2e8f0",
+            background: "#fafbfc",
+            transition: "box-shadow 0.2s",
           }}
           onClick={() => onPromptSelect(lastPrompt, "继续上次", "")}
-          whileHover={{ y: -3, boxShadow: "0 6px 24px rgba(0,0,0,0.08)" }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(0,0,0,0.06)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLElement).style.boxShadow = "";
+          }}
         >
-          <div
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 12,
-              background: "linear-gradient(135deg, #eff6ff, #ede9fe)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <HistoryOutlined style={{ fontSize: 20, color: "#3b82f6" }} />
-          </div>
+          <HistoryOutlined style={{ fontSize: 18, color: "#3b82f6" }} />
           <div style={{ overflow: "hidden" }}>
-            <Text strong style={{ fontSize: 14, color: "#0f172a" }}>继续上次的工作</Text>
+            <Text strong style={{ fontSize: 13, color: "#0f172a" }}>继续上次的工作</Text>
             <br />
             <Text type="secondary" style={{ fontSize: 12 }} ellipsis>
               {lastPrompt}
@@ -137,13 +95,13 @@ export function WelcomeGallery({
       )}
 
       {/* 模板画廊 */}
-      <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <Text style={{ fontSize: 16, color: "#0f172a", fontWeight: 600 }}>
+          <Text style={{ fontSize: 14, color: "#0f172a", fontWeight: 600 }}>
             快速开始
           </Text>
-          <Text type="secondary" style={{ marginLeft: 10, fontSize: 13 }}>
-            点击模板卡片生成对应界面
+          <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+            选择模板开始引导式创建
           </Text>
         </div>
         <Segmented
@@ -155,13 +113,13 @@ export function WelcomeGallery({
         />
       </div>
 
-      <Row gutter={[18, 18]}>
+      <Row gutter={[14, 14]}>
         {filtered.map((tpl, i) => (
           <Col key={tpl.id} xs={24} sm={12} md={8} lg={6}>
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.25 + i * 0.05, duration: 0.35 }}
+              transition={{ delay: 0.15 + i * 0.04, duration: 0.3 }}
             >
               <TemplateCard template={tpl} onClick={onPromptSelect} />
             </motion.div>

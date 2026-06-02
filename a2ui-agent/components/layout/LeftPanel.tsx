@@ -8,6 +8,8 @@ import {
   MessageOutlined,
 } from "@ant-design/icons";
 import { CopilotChat } from "@copilotkitnext/react";
+import { useCopilotKit } from "@copilotkitnext/react";
+import { useAgent } from "@copilotkitnext/react";
 import { useConversation } from "@/hooks/useConversation";
 import { useAppStore } from "@/stores/app";
 
@@ -19,8 +21,10 @@ export function LeftPanel() {
   const pendingPrompt = useAppStore((s) => s.pendingPrompt);
   const setPendingPrompt = useAppStore((s) => s.setPendingPrompt);
   const createConversation = useAppStore((s) => s.createConversation);
+  const currentConversationDetail = useAppStore((s) => s.currentConversationDetail);
 
-  const siderRef = useRef<HTMLDivElement>(null);
+  const { copilotkit } = useCopilotKit();
+  const { agent } = useAgent({ agentId: "default" });
 
   const {
     conversations,
@@ -31,15 +35,54 @@ export function LeftPanel() {
     archive: archiveConv,
   } = useConversation();
 
+  // 防止重复注入历史消息
+  const injectedConvId = useRef<string | null>(null);
+
   const handleNewConversation = useCallback(async () => {
+    injectedConvId.current = null; // 新对话不需要注入历史
     const conv = await createConv("新对话");
     if (conv) message.success("已创建新对话");
   }, [createConv]);
 
   const handleSelectConversation = useCallback(
-    (id: string) => loadConv(id),
+    (id: string) => {
+      injectedConvId.current = null; // 将在 useEffect 中处理注入
+      loadConv(id);
+    },
     [loadConv],
   );
+
+  // 历史消息注入：切换对话后，将 API 加载的历史消息注入 CopilotKit agent
+  useEffect(() => {
+    if (!currentId) return;
+    if (injectedConvId.current === currentId) return; // 已注入过
+
+    const messages = currentConversationDetail?.messages;
+    if (!messages || messages.length === 0) return;
+
+    // 等待 CopilotChat 因 key/threadId 变化而重新挂载
+    const timer = setTimeout(() => {
+      if (injectedConvId.current === currentId) return; // 双重检查
+
+      let injected = 0;
+      for (const m of messages) {
+        if (!m.content) continue;
+        agent.addMessage({
+          id: m.id,
+          role: (m.role as "user" | "assistant") ?? "user",
+          content: m.content,
+        });
+        injected++;
+      }
+
+      if (injected > 0) {
+        injectedConvId.current = currentId;
+        console.log(`[LeftPanel] 已注入 ${injected} 条历史消息到对话 ${currentId}`);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [currentId, currentConversationDetail, agent]);
 
   const handleArchiveConversation = useCallback(
     async (id: string) => {
@@ -49,39 +92,49 @@ export function LeftPanel() {
     [archiveConv],
   );
 
-  // 模板点击 → 创建新对话 → 注入文本 → 发送
+  // 模板点击 → 创建新对话 → 通过 CopilotKit API 发送消息 → 自动生成
   useEffect(() => {
     if (!pendingPrompt) return;
 
+    let cancelled = false;
+
     const send = async () => {
       const conv = await createConversation(pendingPrompt.title);
-      if (!conv) {
+      if (!conv || cancelled) {
         setPendingPrompt(null);
         return;
       }
 
-      const container = siderRef.current;
-      if (!container) {
+      // 等待 React 提交新 CopilotChat（key/threadId 更新）再发送
+      await new Promise((r) => setTimeout(r, 50));
+
+      if (cancelled) {
         setPendingPrompt(null);
         return;
       }
 
-      const input = container.querySelector('[contenteditable="true"]') as HTMLElement;
-      if (input) {
-        input.textContent = pendingPrompt.prompt;
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        setTimeout(() => {
-          const sendBtn = container.querySelector('[aria-label="Send"]') as HTMLElement;
-          if (sendBtn) sendBtn.click();
-          setPendingPrompt(null);
-        }, 100);
-      } else {
-        setPendingPrompt(null);
+      const { prompt } = pendingPrompt;
+      setPendingPrompt(null);
+
+      agent.addMessage({
+        id: crypto.randomUUID(),
+        role: "user",
+        content: prompt,
+      });
+
+      try {
+        await copilotkit.runAgent({ agent });
+      } catch {
+        message.warning("生成启动失败，请在输入框中重试。");
       }
     };
 
     send();
-  }, [pendingPrompt, setPendingPrompt, createConversation]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pendingPrompt, setPendingPrompt, createConversation, agent, copilotkit]);
 
   if (!sidebarOpen) return null;
 
@@ -96,7 +149,7 @@ export function LeftPanel() {
         flexDirection: "column",
       }}
     >
-      <div ref={siderRef} style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", height: "100%" }}>
         <div style={{ padding: "16px 12px 12px" }}>
           <Button
             type="primary"

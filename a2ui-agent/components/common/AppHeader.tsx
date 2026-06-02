@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Layout, Button, Avatar, Dropdown, Typography, Space, Badge } from "antd";
-import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined, RightOutlined, LeftOutlined } from "@ant-design/icons";
+import { LogoutOutlined, MenuFoldOutlined, MenuUnfoldOutlined, UserOutlined } from "@ant-design/icons";
 import { signOut } from "next-auth/react";
 import { useAppStore } from "@/stores/app";
 
@@ -20,8 +20,6 @@ interface AppHeaderProps {
 export function AppHeader({ user }: AppHeaderProps) {
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
-  const rightPanelOpen = useAppStore((s) => s.rightPanelOpen);
-  const toggleRightPanel = useAppStore((s) => s.toggleRightPanel);
 
   const userMenuItems = [
     { key: "email", label: user.email, disabled: true },
@@ -64,18 +62,11 @@ export function AppHeader({ user }: AppHeaderProps) {
           className="gradient-text"
           style={{ fontSize: 18, fontWeight: 700, letterSpacing: "-0.3px" }}
         >
-          A2UI Agent
+          UI-Agent
         </Text>
       </Space>
 
       <Space>
-        <Button
-          type="text"
-          icon={rightPanelOpen ? <RightOutlined /> : <LeftOutlined />}
-          onClick={toggleRightPanel}
-          title={rightPanelOpen ? "收起思考面板" : "展开思考面板"}
-          style={{ color: "#64748b" }}
-        />
         <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
           <Space style={{ cursor: "pointer" }}>
             <Badge status="success" dot offset={[-2, 4]}>
